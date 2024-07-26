@@ -1,0 +1,30 @@
+export class UserResponseDto {
+    telegramId: string;
+    firstName: string;
+    lastName: string;
+    username: string;
+    languageCode: string;
+    isPremium: boolean;
+    allowsWriteToPm: boolean;
+    referralCode: string;
+    profilePicture: string;
+    balance: string;
+    energy: string;
+    level: number;
+    earnByTapBoosterLevel: number;
+    energyPerSecondBoosterLevel: number;
+    maxEnergyBoosterLevel: number;
+    earnPerHourBonus: string;
+    lastEnergyUpdateTimestamp: number;
+    lastTapTimestamp: number;
+    lastDailyClaimTimestamp: number;
+    prevDailyClaimTimestamp: number;
+    dailyStreak: number;
+    lastFullEnergyBonusTimestamp: number;
+    fullEnergyBonusCount: number;
+    teamId: number;
+    earnTaskIds: string;
+    maxEnergy: number;
+    energyPerSecond: number;
+    earnPerTap: number;
+}
