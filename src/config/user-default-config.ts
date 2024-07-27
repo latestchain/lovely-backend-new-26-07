@@ -1,7 +1,7 @@
 export const userDefaultConfig = {
     level: 1,
     balance: 0n,
-    energy: 100n,
+    energy: 200n,
     earnByTapBoosterLevel: 0,
     energyPerSecondBoosterLevel: 0,
     maxEnergyBoosterLevel: 0,
