@@ -21,10 +21,11 @@ export class UserResponseDto {
     prevDailyClaimTimestamp: number;
     dailyStreak: number;
     lastFullEnergyBonusTimestamp: number;
+    firstFullEnergyBonusTimestamp: number;
     fullEnergyBonusCount: number;
     teamId: number;
     earnTaskIds: string;
-    maxEnergy: number;
+    maxEnergy: string;
     energyPerSecond: number;
     earnPerTap: number;
 }

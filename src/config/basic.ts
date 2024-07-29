@@ -1,6 +1,9 @@
+export const decimals = 2;
+export const decimalsMultiplier = Math.pow(10, decimals);
+
 export const basic = {
-    energyPerSecond: 1,
-    earnByTap: 0.3,
-    earnPerHour: 10,
-    maxEnergy: 100
+    earnByTap: 0.3 * decimalsMultiplier,
+    earnPerHour: 0 * decimalsMultiplier,
+    maxEnergy: 100 * decimalsMultiplier,
+    fullEnergyRecoveryTime: 60 * 60, // 1 hour
 }

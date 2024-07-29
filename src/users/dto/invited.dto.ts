@@ -4,5 +4,6 @@ export class InvitedDto {
 	lastName: string;
 	username: string;
 	isPremium: boolean;
-	reward: number;
+	reward: string;
+	level: number;
 }

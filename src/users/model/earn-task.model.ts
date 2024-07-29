@@ -14,8 +14,13 @@ export class EarnTask extends Document {
 	@Prop({ required: true, enum: EarnTaskType })
 	type: EarnTaskType;
 
-	@Prop({ required: true })
-	reward: number;
+	@Prop({
+		type: String,
+		get: (v: string) => BigInt(v),
+		set: (v: bigint) => v.toString(),
+		required: true,
+	})
+	reward: bigint;
 }
 
 export const EarnTaskSchema = SchemaFactory.createForClass(EarnTask);

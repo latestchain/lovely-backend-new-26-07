@@ -10,6 +10,7 @@ export class UserData extends Document {
 		type: String,
 		get: (v: string) => BigInt(v),
 		set: (v: bigint) => v.toString(),
+		required: true,
 	})
 	energy: bigint;
 
@@ -26,6 +27,7 @@ export class UserData extends Document {
 		type: String,
 		get: (v: string) => BigInt(v),
 		set: (v: bigint) => v.toString(),
+		required: true,
 	})
 	earnPerHourBonus: bigint;
 
@@ -46,6 +48,9 @@ export class UserData extends Document {
 
 	@Prop({ required: true })
 	lastFullEnergyBonusTimestamp: number;
+
+	@Prop({ required: true })
+	firstFullEnergyBonusTimestamp: number;
 
 	@Prop({ required: true })
 	fullEnergyBonusCount: number;

@@ -1,7 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 import { ConfigService } from '@nestjs/config';
-import { UpdateUserDto } from '../users/dto/update-user.dto';
 import {UsersService} from "../users/users.service";
 
 @Injectable()

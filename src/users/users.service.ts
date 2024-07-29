@@ -1,29 +1,28 @@
 import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import {User} from "./model/user.model";
-import {UserData} from "./model/user-data.model";
-import {EarnTask} from "./model/earn-task.model";
+import { User } from "./model/user.model";
+import { UserData } from "./model/user-data.model";
+import { EarnTask } from "./model/earn-task.model";
 import { EarnTaskType } from 'src/constants/enums/earn-task-type';
-import {Referral} from "./model/referral.model";
-import {UserRequestDto} from "./dto/user-request.dto";
-import {userDefaultConfig} from "../config/user-default-config";
-import {generateReferralCode, getReferrerId} from "../helpers/referral";
-import {msToSeconds} from "../helpers/ms-to-seconds";
-import {UserResponseDto} from "./dto/user-response.dto";
-import {calcUserEarnByTap, calcUserEnergyPerSecond, calcUserMaxEnergy} from "../helpers/user-calculated-params";
-import {levels} from "../config/levels";
-import {referralBonus} from "../config/referral-bonus";
-import {daily} from "../config/daily";
-import {maxEnergyBoost} from "../config/max-energy-boost";
-import {energyPerSecondBoost} from "../config/energy-per-second-boost";
-import {earnByTapBoost} from "../config/earn-by-tap-boost";
-import {InvitedDto} from "./dto/invited.dto";
-import {LeaderboardResponseDto} from "./dto/leaderboard-response.dto";
-import {StatsService} from "../stats/stats.service";
-
-
-
+import { Referral } from "./model/referral.model";
+import { UserRequestDto } from "./dto/user-request.dto";
+import { userDefaultConfig } from "../config/user-default-config";
+import { generateReferralCode, getReferrerId } from "../helpers/referral";
+import { msToSeconds } from "../helpers/ms-to-seconds";
+import { UserResponseDto } from "./dto/user-response.dto";
+import { calcUserEarnByTap, calcUserEnergyPerSecond, calcUserMaxEnergy } from "../helpers/user-calculated-params";
+import { levels } from "../config/levels";
+import { referralBonus, referralBonusPerLevel } from "../config/referral-bonus";
+import { daily } from "../config/daily";
+import { maxEnergyBoost } from "../config/max-energy-boost";
+import { energyPerSecondBoost } from "../config/energy-per-second-boost";
+import { earnByTapBoost } from "../config/earn-by-tap-boost";
+import { InvitedDto } from "./dto/invited.dto";
+import { LeaderboardResponseDto } from "./dto/leaderboard-response.dto";
+import { StatsService } from "../stats/stats.service";
+import { decimalsMultiplier } from "../config/basic";
+import { fullEnergyBonus } from "../config/full-energy-bonus";
 
 @Injectable()
 export class UsersService {
@@ -83,6 +82,7 @@ export class UsersService {
 			dailyStreak: userDefaultConfig.dailyStreak,
 			lastFullEnergyBonusTimestamp: userDefaultConfig.lastFullEnergyBonusTimestamp,
 			fullEnergyBonusCount: userDefaultConfig.fullEnergyBonusCount,
+			firstFullEnergyBonusTimestamp: userDefaultConfig.firstFullEnergyBonusTimestamp,
 		});
 		return userData.save();
 	}
@@ -118,49 +118,81 @@ export class UsersService {
 			prevDailyClaimTimestamp: userData.prevDailyClaimTimestamp,
 			dailyStreak: userData.dailyStreak,
 			lastFullEnergyBonusTimestamp: userData.lastFullEnergyBonusTimestamp,
+			firstFullEnergyBonusTimestamp: userData.firstFullEnergyBonusTimestamp,
 			fullEnergyBonusCount: userData.fullEnergyBonusCount,
 			teamId: userData.teamId,
 			earnTaskIds: userData.earnTaskIds,
-			maxEnergy: calcUserMaxEnergy(user.level, userData.maxEnergyBoosterLevel),
-			energyPerSecond: calcUserEnergyPerSecond(user.level, userData.energyPerSecondBoosterLevel),
+			maxEnergy: calcUserMaxEnergy(user.level, userData.maxEnergyBoosterLevel).toString(),
+			energyPerSecond: calcUserEnergyPerSecond(user.level, userData.maxEnergyBoosterLevel),
 			earnPerTap: calcUserEarnByTap(user.level, userData.earnByTapBoosterLevel),
 		};
 	}
 
 	private async updateEnergy(user: User, userData: UserData): Promise<void> {
 		const now = msToSeconds(Date.now());
-		const energyToAdd = (now - userData.lastEnergyUpdateTimestamp) * calcUserEnergyPerSecond(user.level, userData.energyPerSecondBoosterLevel);
+		const energyToAdd = (now - userData.lastEnergyUpdateTimestamp) * calcUserEnergyPerSecond(user.level, userData.maxEnergyBoosterLevel);
 		const maxEnergy = calcUserMaxEnergy(user.level, userData.maxEnergyBoosterLevel);
-		const newEnergy = BigInt(userData.energy) + BigInt(energyToAdd);
-		userData.energy = newEnergy > BigInt(maxEnergy) ? BigInt(maxEnergy) : newEnergy;
+		const newEnergy = userData.energy + BigInt(Math.ceil(energyToAdd));
+		userData.energy = newEnergy > maxEnergy ? maxEnergy : newEnergy;
 		userData.lastEnergyUpdateTimestamp = now;
 		await userData.save();
 	}
 
-	private async increaseBalance(user: User, amount: number): Promise<void> {
+	private async distributeReferralBonus(telegramId: string, level: number, isPremium: boolean): Promise<void> {
+		this.logger.log(`Distributing referral bonus for ${telegramId} at level ${level}`);
+		const invited = await this.referralModel.findOne({ invitedId: telegramId }).exec();
+
+		if (!invited) {
+			this.logger.log('No invited user found');
+			return;
+		}
+
+		const referrer = await this.getUserByTelegramId(invited.referrerId);
+		const referalBonus = referralBonusPerLevel[level - 1];
+		
+		if (!referralBonus) {
+			this.logger.log('No referral bonus found');
+			return;
+		}
+
+		const bonus = isPremium ? referalBonus.premium : referalBonus.regular;
+		await this.referralModel.updateOne(
+			{ _id: invited._id },
+			{ $set: { 
+				reward: invited.reward + bonus,
+				level: level 
+			} }
+		).exec();
+		await this.increaseBalance(referrer, BigInt(bonus));
+	}
+
+	private async increaseBalance(user: User, amount: bigint): Promise<void> {
 		const updatedUser = await this.userModel.findOneAndUpdate(
 			{ _id: user._id },
-			{ $set: { balance: user.balance + BigInt(amount) } },
+			{ $set: { balance: user.balance + amount } },
 			{ new: true }
 		).exec();
 
-		const nextLevel = levels[updatedUser.level + 1];
-		if (nextLevel && updatedUser.balance >= BigInt(nextLevel.pointsToGet)) {
+		const nextLevel = updatedUser.level + 1;
+		const nextLevelData = levels[nextLevel];
+		if (nextLevelData && updatedUser.balance >= nextLevelData.pointsToGet) {
 			await this.userModel.updateOne(
 				{ _id: user._id },
 				{ $inc: { level: 1 } }
 			).exec();
+
+			await this.distributeReferralBonus(updatedUser.telegramId, nextLevel, updatedUser.isPremium);
 		}
 	}
 
-	private async decreaseBalance(user: User, amount: number): Promise<boolean> {
-		if (user.balance < BigInt(amount)) {
+	private async decreaseBalance(user: User, amount: bigint): Promise<boolean> {
+		if (user.balance < amount) {
 			return false;
 		}
 
 		await this.userModel.findOneAndUpdate(
 			{ _id: user._id },
-			{ $set: { balance: user.balance - BigInt(amount) } },
+			{ $set: { balance: user.balance - amount } },
 			{ new: true }
 		).exec();
 
@@ -198,6 +230,7 @@ export class UsersService {
 							firstName: user.firstName,
 							lastName: user.lastName || '',
 							referralCode: referralCode,
+							level: user.level,
 						});
 						await invited.save();
 						await this.increaseBalance(referrerUser, invited.reward);
@@ -248,9 +281,9 @@ export class UsersService {
 		await this.userDataModel.updateOne(
 			{ _id: userData._id },
 			{
-				$set: { 
+				$set: {
 					energy: userData.energy - energyDecrease,
-					lastTapTimestamp: msToSeconds(Date.now()) 
+					lastTapTimestamp: msToSeconds(Date.now())
 				}
 			}
 		).exec();
@@ -405,16 +438,12 @@ export class UsersService {
 		}
 
 		const earnTapBooster = earnByTapBoost[userData.earnByTapBoosterLevel + 1];
-		
+
 		if (!earnTapBooster) {
 			throw new ForbiddenException('Max level reached');
 		}
 
 		const cost = earnTapBooster.cost;
-
-		Logger.log(cost);
-		Logger.log(user.balance);
-		Logger.log(user);
 
 		if (!await this.decreaseBalance(user, cost)) {
 			Logger.log('Not enough balance, decreaseBalance');
@@ -447,7 +476,8 @@ export class UsersService {
 			lastName: inv.lastName,
 			username: inv.username,
 			isPremium: inv.invitedPremium,
-			reward: inv.reward,
+			reward: inv.reward.toString(),
+			level: inv.level,
 		}));
 	}
 
@@ -473,6 +503,47 @@ export class UsersService {
 		}));
 	}
 
+	async refillEnergy(userRequest: UserRequestDto): Promise<UserResponseDto> {
+		const initData = userRequest.initData;
+		const userData = await this.getUserDataByTelegramId(`${initData.user.id}`);
+
+		if (!userData) {
+			throw new NotFoundException('User not found');
+		}
+
+		const now = msToSeconds(Date.now());
+
+		if (now - userData.firstFullEnergyBonusTimestamp >= 86400) {
+			await this.userDataModel.updateOne(
+				{ _id: userData._id },
+				{ $set: { firstFullEnergyBonusTimestamp: now, fullEnergyBonusCount: 0 } }
+			).exec();
+		}
+
+		if (now - userData.lastFullEnergyBonusTimestamp < fullEnergyBonus.delayBetweenActivations) {
+			throw new ForbiddenException('Too early to refill energy');
+		}
+
+		if (userData.fullEnergyBonusCount >= fullEnergyBonus.activationsPer24Hours) {
+			throw new ForbiddenException('Max activations reached');
+		}
+
+		const user = await this.getUserByTelegramId(`${initData.user.id}`);
+
+		await this.userDataModel.updateOne(
+			{ _id: userData._id },
+			{
+				$set: {
+					energy: calcUserMaxEnergy(user.level, userData.maxEnergyBoosterLevel),
+					lastFullEnergyBonusTimestamp: now,
+					fullEnergyBonusCount: userData.fullEnergyBonusCount + 1
+				}
+			}
+		).exec();
+
+		return this.getUserAllData(userData.telegramId);
+	}
+
 	// TODO: Remove this method in production
 	async addEarnTasks(): Promise<EarnTask[]> {
 		const tasks = await this._getTasks();
@@ -480,49 +551,49 @@ export class UsersService {
 		if (tasks.length) {
 			throw new ForbiddenException('Tasks already exist');
 		}
-		
+
 		const newTasks: any = [
 			{
 				id: 1,
 				link: 'https://x.com/Lovely_finance',
 				type: EarnTaskType.X,
-				reward: 5000,
+				reward: BigInt(400 * decimalsMultiplier).toString(),
 			},
 			{
 				id: 2,
 				link: 'https://t.me/lovelyinu_coin',
 				type: EarnTaskType.TELEGRAM,
-				reward: 1000,
+				reward: BigInt(200 * decimalsMultiplier).toString(),
 			},
 			{
 				id: 3,
 				link: 'https://www.instagram.com/lovely_finance',
 				type: EarnTaskType.INSTAGRAM,
-				reward: 1000,
+				reward: BigInt(200 * decimalsMultiplier).toString(),
 			},
 			{
 				id: 4,
 				link: 'https://www.youtube.com/watch?v=-Hk5_wuljQY',
 				type: EarnTaskType.YOUTUBE,
-				reward: 1000,
+				reward: BigInt(200 * decimalsMultiplier).toString(),
 			},
 			{
 				id: 5,
 				link: 'https://discord.gg/37kxK5fSuW',
 				type: EarnTaskType.DISCORD,
-				reward: 1000,
+				reward: BigInt(200 * decimalsMultiplier).toString(),
 			},
 			{
 				id: 6,
 				link: 'https://www.tiktok.com/@lovely.finance',
 				type: EarnTaskType.TIKTOK,
-				reward: 1000,
+				reward: BigInt(200 * decimalsMultiplier).toString(),
 			},
 			{
 				id: 7,
 				link: 'https://www.reddit.com/r/Lovely_Finance_/s/IX4FpHTY55',
 				type: EarnTaskType.REDDIT,
-				reward: 1000,
+				reward: BigInt(200 * decimalsMultiplier).toString(),
 			},
 		];
 

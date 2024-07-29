@@ -15,8 +15,13 @@ export class Referral extends Document {
 	@Prop({ required: true })
 	invitedPremium: boolean;
 
-	@Prop({ required: true })
-	reward: number;
+	@Prop({
+		type: String,
+		get: (v: string) => BigInt(v),
+		set: (v: bigint) => v.toString(),
+		required: true,
+	})
+	reward: bigint;
 
 	@Prop({ required: false })
 	username: string;
@@ -26,6 +31,9 @@ export class Referral extends Document {
 
 	@Prop({ required: false })
 	lastName: string;
+
+	@Prop({ required: true })
+	level: number;
 }
 
 export const ReferralSchema = SchemaFactory.createForClass(Referral);

@@ -1,4 +1,6 @@
-export const daily = [
+import {decimalsMultiplier} from './basic';
+
+const dailyNumber = [
     20, // day 1
     40, // day 2
     100, // day 3
@@ -10,3 +12,5 @@ export const daily = [
     5000, // day 9
     10000, // day 10
 ];
+
+export const daily = dailyNumber.map((value) => BigInt(value * decimalsMultiplier));

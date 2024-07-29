@@ -21,7 +21,7 @@ export class UsersController {
 	@UseGuards(TelegramAuthGuard)
 	@Post('user')
 	async getOrCreateUser(@Body() userRequestDto: UserRequestDto): Promise<UserResponseDto> {
-		this.logger.log('getOrCreateUser', JSON.stringify(userRequestDto));
+		// this.logger.log('getOrCreateUser', JSON.stringify(userRequestDto));
 		return await this.appService.getOrCreateUser(userRequestDto);
 	}
 
@@ -61,11 +61,11 @@ export class UsersController {
 		return await this.appService.buyMaxEnergyBooster(userRequestDto);
 	}
 
-	@UseGuards(TelegramAuthGuard)
-	@Post('buy-booster/energy-regen')
-	async buyEnergyRegenBooster(@Body() userRequestDto: UserRequestDto): Promise<UserResponseDto> {
-		return await this.appService.buyEnergyRegenBooster(userRequestDto);
-	}
+	// @UseGuards(TelegramAuthGuard)
+	// @Post('buy-booster/energy-regen')
+	// async buyEnergyRegenBooster(@Body() userRequestDto: UserRequestDto): Promise<UserResponseDto> {
+	// 	return await this.appService.buyEnergyRegenBooster(userRequestDto);
+	// }
 
 	@UseGuards(TelegramAuthGuard)
 	@Post('buy-booster/earn-tap')
@@ -89,6 +89,12 @@ export class UsersController {
 	@Get('add-earn-tasks')
 	async addEarnTasks(): Promise<EarnTask[]> {
 		return await this.appService.addEarnTasks();
+	}
+
+	@UseGuards(TelegramAuthGuard)
+	@Post('refill-energy')
+	async refillEnergy(@Body() userRequestDto: UserRequestDto): Promise<UserResponseDto> {
+		return await this.appService.refillEnergy(userRequestDto);
 	}
 
 }
