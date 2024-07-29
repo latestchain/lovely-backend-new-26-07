@@ -9,7 +9,7 @@ export class TelegramAuthGuard implements CanActivate {
 	): boolean | Promise<boolean> | Observable<boolean> {
 		const request = context.switchToHttp().getRequest();
 		const authData = this.extractAuthData(request);
-
+		console.log('TelegramAuthGuard authData ------------------> ',authData);
 		if (!authData) {
 			throw new UnauthorizedException('Missing Telegram authentication data');
 		}
