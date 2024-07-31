@@ -38,22 +38,22 @@ export class TelegramService implements OnModuleInit {
 	}
 
 	private async handleStartCommand(ctx: any) {
-		const { id, username, first_name, last_name } = ctx.from;
-		const referralId = ctx.startPayload; // Get referral ID if present
-
 		try {
 
-			const welcomeMessage = `Welcome to Lovely Legends! 🌟\n\nWhat can this bot do?\n\nTransform your journey from a humble Bronze Coin to the mighty Lord Coin of the top-tier 1 crypto exchange! 🚀`;
+			const welcomeMessage = `*The Biggest Committed Airdrop in the History\\! 🌟*\n\nWelcome to Lovely Legends\\!\nTransform your journey from a humble Bronze Coin to the mighty Lord Coin of the top\\-tier 1 crypto exchange\\! 🚀\n\nStart your adventure now and conquer the crypto world\\! 🏆`;
 
-			await ctx.replyWithHTML(welcomeMessage, {
+			await ctx.sendPhoto(welcomeMessage, {
+				photo: 'https://play.lovely.finance/img/lovely-legends.jpg',
+				caption: welcomeMessage,
 				reply_markup: {
 					inline_keyboard: [
-						[{ text: '👉 Start now!', web_app: { url: `${this.configService.get<string>('WEB_APP')}?tgid=${id}` } }],
-						[{ text: 'Join community 🚀', url: 'https://t.me/lovelyinu_coin' }],
+						[{ text: '👉 Start now\!', url: `${this.configService.get<string>('WEB_APP')}` }],
+						[{ text: 'Join community 🚀', url: 'https://t.me/lovelyinu_channel' }],
 						[{ text: 'Follow on X ✅', url: 'https://twitter.com/Lovely_finance' }],
 						[{ text: 'Subscribe YouTube', url: 'https://www.youtube.com/watch?v=-Hk5_wuljQY' }],
 					],
 				},
+				parse_mode: 'MarkdownV2',
 			});
 		} catch (error) {
 			this.logger.error(`Error handling start command: ${error.message}`);

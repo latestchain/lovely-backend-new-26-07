@@ -5,9 +5,9 @@ import { maxEnergyBoost } from "../config/max-energy-boost";
 import { levels } from "../config/levels";
 
 export const calcUserMaxEnergy = (userLevel: number, boosterLevel: number) => {
-    const maxEnergyBoostSum = maxEnergyBoost.slice(0, boosterLevel + 1).reduce((acc, cur) => acc + cur.boost, BigInt(0));
-
-    return BigInt(basic.maxEnergy * levels[userLevel].maxEnergyMultiplier) + maxEnergyBoostSum;
+    const levelMaxEnergy = BigInt(basic.maxEnergy * levels[userLevel].maxEnergyMultiplier);
+    const boostMaxEnergy = BigInt(basic.maxEnergy) * BigInt(maxEnergyBoost[boosterLevel].boost);
+    return levelMaxEnergy + boostMaxEnergy;
 }
 
 export const calcUserEnergyPerSecond = (userLevel: number, maxEnergyBoosterLevel: number) => {
@@ -22,7 +22,7 @@ export const calcUserEarnPerHour = (userLevel: number, earnPerHourBonus: number)
 }
 
 export const calcUserEarnByTap = (userLevel: number, boosterLevel: number) => {
-    const earnByTapBoostSum = earnByTapBoost.slice(0, boosterLevel + 1).reduce((acc, cur) => acc + cur.boost * decimalsMultiplier, 0);
-
-    return basic.earnByTap * levels[userLevel].earnByTapMultiplier + earnByTapBoostSum;
+    const levelEarnByTap = basic.earnByTap * levels[userLevel].earnByTapMultiplier;
+    const boostEarnByTap = basic.earnByTap * earnByTapBoost[boosterLevel].boost;
+    return levelEarnByTap + boostEarnByTap;
 }

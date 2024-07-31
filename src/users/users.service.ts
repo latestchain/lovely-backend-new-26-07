@@ -175,7 +175,7 @@ export class UsersService {
 
 		const nextLevel = updatedUser.level + 1;
 		const nextLevelData = levels[nextLevel];
-		if (nextLevelData && updatedUser.balance >= nextLevelData.pointsToGet) {
+		if (nextLevelData && (updatedUser.balance >= nextLevelData.pointsToGet)) {
 			await this.userModel.updateOne(
 				{ _id: user._id },
 				{ $inc: { level: 1 } }
@@ -271,11 +271,12 @@ export class UsersService {
 
 		await this.updateEnergy(user, userData);
 
-		const increaseAmount = calcUserEarnByTap(user.level, userData.earnByTapBoosterLevel) * count;
-		const energyDecrease = BigInt(increaseAmount);
+		let increaseAmount = calcUserEarnByTap(user.level, userData.earnByTapBoosterLevel) * count;
+		let energyDecrease = BigInt(increaseAmount);
 
 		if (BigInt(userData.energy) < energyDecrease) {
-			throw new ForbiddenException('Not enough energy');
+			energyDecrease = BigInt(userData.energy);
+			increaseAmount = Number(energyDecrease);
 		}
 
 		await this.userDataModel.updateOne(
@@ -288,10 +289,7 @@ export class UsersService {
 			}
 		).exec();
 
-		await this.userModel.updateOne(
-			{ _id: user._id },
-			{ $set: { balance: user.balance + BigInt(increaseAmount) } }
-		).exec();
+		await this.increaseBalance(user, BigInt(increaseAmount));
 		await this.statsService.incrementTotalTaps(count);
 		await this.statsService.incrementTotalBalance(increaseAmount);
 		return this.getUserAllData(userData.telegramId);
@@ -489,6 +487,7 @@ export class UsersService {
 		const top10Users = await this.userModel
 			.find({ level })
 			.sort({ balance: -1 })
+			.collation({ locale: 'en', numericOrdering: true })
 			.limit(10)
 			.exec();
 
